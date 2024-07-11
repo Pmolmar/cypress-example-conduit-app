@@ -63,7 +63,8 @@ jobs:
           command: npm install
       - run:
           name: Incia aplicacion
-          command: npm run start
+          command: |
+            npm run start
       - run:
           name: Incia aplicacion
           command: |
