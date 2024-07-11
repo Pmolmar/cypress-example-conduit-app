@@ -60,11 +60,6 @@ jobs:
 workflows:
   build:
     jobs:
-      - setup:
-          executor: cypress-executor
-          steps:
-            - run: npm config set unsafe-perm true
-
       - cypress-run:
           executor: cypress-executor
           parallelism: 2
