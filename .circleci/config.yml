@@ -48,6 +48,7 @@ jobs:
     executor: cypress-executor
     parallelism: 2
     steps:
+      - checkout
       - run:
           name: Install dependencies
           command: npm install
