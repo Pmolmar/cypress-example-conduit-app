@@ -11,7 +11,7 @@ jobs:
           command: npm install
       - run:
           name: Empezando coverage
-          command: npm run start:coverage
+          command: npm run start:coverage &
       - run:
           name: Usando NYC
           command: npx nyc report --reporter=text
