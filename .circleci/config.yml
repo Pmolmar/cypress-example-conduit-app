@@ -19,6 +19,15 @@ jobs:
           name: Usando NYC
           command: npx nyc report --reporter=text
       - run:
+          name: Creado Coverage-Part
+          command: mkdir coverage-part
+      - run:
+          name: Creando ficher placeholder
+          command: touch coverage-part/.placeholder
+      - run:
+          name: Copiando
+          command: cp coverage/coverage-final.json coverage-part/coverage-default-$CIRCLE_WORKFLOW_JOB_ID-index-$CIRCLE_NODE_INDEX.json || true
+      - run:
           name: Merge
           command: npx nyc merge coverage-part
       - run:
