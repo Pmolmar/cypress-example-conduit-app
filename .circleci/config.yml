@@ -1,7 +1,7 @@
 version: 2.1
-
 jobs:
   test:
+    description: Ejecucion de test cypress
     docker:
       - image: cypress/base:14
     steps:
@@ -11,7 +11,45 @@ jobs:
           command: npm install
       - run:
           name: Ejecutando Tests
-          command: npm run test
+          command: npm run coveralls
+  dockerize:
+    description: Compila y sube imagen docker
+    docker:
+      - image: docker:19.03.12
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.12
+      - run:
+          name: Construye Imagen
+          command: |
+            docker build -t alu0101103181/practica-final:${CIRCLE_SHA1} .
+            docker tag alu0101103181/practica-final:${CIRCLE_SHA1} alu0101103181/practica-final:latest
+      - run:
+          name: Sube Imagen
+          command: |
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            docker push alu0101103181/practica-final:${CIRCLE_SHA1}
+            docker push alu0101103181/practica-final:latest
+
+  deploy:
+    description: Despliega en GKE
+    docker:
+      - image: google/cloud-sdk:latest
+    steps:
+      - checkout
+      - run:
+          name: Configure Google Cloud SDK
+          command: |
+            echo "$GCLOUD_SERVICE_KEY" | base64 --decode -i > ${HOME}/gcloud-service-key.json
+            gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            gcloud config set project sytw-428919
+            gcloud config set compute/zone europe-west4-a
+            gcloud container clusters get-credentials practica-final --project=sytw-428919 --zone=europe-west4-a
+      - run:
+          name: Update Deployment in GKE
+          command: |
+            kubectl set image deployment/practica-final practica-final=alu0101103181/practica-final:${CIRCLE_SHA1}
 
 workflows:
   version: 2
