@@ -3,7 +3,7 @@ version: 2.1
 executors:
   cypress-executor:
     docker:
-      - image: cypress/included:14.0.0
+      - image: cypress/base:14
 
 commands:
   save-partial-coverage-report:
