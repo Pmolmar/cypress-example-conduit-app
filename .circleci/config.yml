@@ -39,6 +39,29 @@ commands:
       - run: ls -la .nyc_output
 
 jobs:
+  setup:
+    executor: cypress-executor
+    steps:
+      - run: npm config set unsafe-perm true
+
+  cypress-run:
+    executor: cypress-executor
+    parallelism: 2
+    steps:
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Start server and wait for it to be ready
+          command: |
+            npm run start:coverage &
+            npx wait-on http://localhost:4100
+      - run:
+          name: Run Cypress tests
+          command: npx cypress run
+      - save-partial-coverage-report:
+          label: e2e
+
   merge-coverage:
     description: Merges individual code coverage files and sends combined data to Coveralls.io
     executor: cypress-executor
@@ -60,18 +83,8 @@ jobs:
 workflows:
   build:
     jobs:
-      - cypress-run:
-          executor: cypress-executor
-          parallelism: 2
-          steps:
-            - run:
-                name: Start server and run Cypress tests
-                command: |
-                  npm run start:coverage &
-                  wait-on http://localhost:4100
-            - save-partial-coverage-report:
-                label: e2e
-
+      - setup
+      - cypress-run
       - merge-coverage:
           requires:
             - cypress-run
