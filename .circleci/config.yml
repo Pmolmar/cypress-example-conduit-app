@@ -1,0 +1,20 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cypress/base:14
+    steps:
+      - checkout
+      - run:
+          name: Instalando proyecto
+          command: npm install
+      - run:
+          name: Ejecutando Tests
+          command: npm run test
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
