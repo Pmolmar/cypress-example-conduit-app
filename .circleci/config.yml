@@ -141,4 +141,4 @@ workflows:
             - test
       - deploy:
           requires:
-            - dokerize
+            - dockerize
