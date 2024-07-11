@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: practica-final
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: practica-final
+  template:
+    metadata:
+      labels:
+        app: practica-final
+    spec:
+      containers:
+        - name: practica-final
+          image: alu0101103181/cypress-realworld:latest
+          ports:
+            - containerPort: 4100 # Puerto para el cliente
+            - containerPort: 3000 # Puerto para el servidor
