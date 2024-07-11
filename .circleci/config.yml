@@ -19,6 +19,9 @@ jobs:
           name: Usando NYC
           command: npx nyc report --reporter=text
       - run:
+          name: Merge
+          command: npx nyc merge coverage-part
+      - run:
           name: Moviendo al directorio
           command: mv coverage.json .nyc_output/out.json
       - run:
