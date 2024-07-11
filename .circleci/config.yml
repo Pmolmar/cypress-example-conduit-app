@@ -1,11 +1,4 @@
 version: 2.1
-orbs:
-  cypress: cypress-io/cypress@1
-
-executors:
-  latest:
-    docker:
-      - image: cypress/browsers:node12.13.0-chrome78-ff70
 
 commands:
   save-partial-coverage-report:
@@ -62,7 +55,8 @@ commands:
 jobs:
   merge-coverage:
     description: Merges individual code coverage files and sends combined data to Coveralls.io
-    executor: cypress/base-10
+    docker:
+      - image: cypress/base:14
     steps:
       - attach_workspace:
           at: ~/
