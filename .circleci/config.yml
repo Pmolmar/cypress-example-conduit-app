@@ -70,7 +70,7 @@ jobs:
           name: Incia aplicacion
           command: |
 
-            npm run cypress:test
+            npm run test
       # - run:
       #     name: Start server and wait for it to be ready
       #     command: |
