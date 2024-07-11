@@ -1,82 +1,164 @@
 version: 2.1
-jobs:
-  test:
-    description: Ejecucion de test cypress
-    docker:
-      - image: cypress/base:14
-    steps:
-      - checkout
-      - run:
-          name: Instalando proyecto
-          command: npm install
-      - run:
-          name: Creando directorios
-          command: mkdir .nyc_output
-      - run:
-          name: Empezando coverage
-          command: npm run start:coverage &
-      - run:
-          name: Usando NYC
-          command: npx nyc report --reporter=text
-      - run:
-          name: Creado Coverage-Part
-          command: mkdir coverage-part
-      - run:
-          name: Creando ficher placeholder
-          command: touch coverage-part/.placeholder
-      - run:
-          name: Copiando
-          command: cp coverage/coverage-final.json coverage-part/coverage-default-$CIRCLE_WORKFLOW_JOB_ID-index-$CIRCLE_NODE_INDEX.json || true
-      - run:
-          name: Merge
-          command: npx nyc merge coverage-part
-      - run:
-          name: Moviendo al directorio
-          command: mv coverage.json .nyc_output/out.json
-      - run:
-          name: Ejecutando Tests
-          command: npm run coveralls
-  dockerize:
-    description: Compila y sube imagen docker
-    docker:
-      - image: docker:19.03.12
-    steps:
-      - checkout
-      - setup_remote_docker:
-          version: 19.03.12
-      - run:
-          name: Construye Imagen
-          command: |
-            docker build -t alu0101103181/practica-final:${CIRCLE_SHA1} .
-            docker tag alu0101103181/practica-final:${CIRCLE_SHA1} alu0101103181/practica-final:latest
-      - run:
-          name: Sube Imagen
-          command: |
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-            docker push alu0101103181/practica-final:${CIRCLE_SHA1}
-            docker push alu0101103181/practica-final:latest
 
-  deploy:
-    description: Despliega en GKE
+executors:
+  cypress-executor:
     docker:
-      - image: google/cloud-sdk:latest
+      - image: cypress/included:14.0.0
+
+commands:
+  save-partial-coverage-report:
+    description: |
+      Saves a single possibly partial coverage report by adding it to the
+      workspace.
+    parameters:
+      coverage-filename:
+        type: string
+        default: coverage/coverage-final.json
+      label:
+        type: string
+        default: default
     steps:
-      - checkout
+      - run: mkdir coverage-part || true
+      - run: touch coverage-part/.placeholder || true
+      - run: cp <<parameters.coverage-filename>> coverage-part/coverage-<<parameters.label>>-$CIRCLE_WORKFLOW_JOB_ID-index-$CIRCLE_NODE_INDEX.json || true
+      - run: ls -la coverage-part
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - 'project/coverage-part/*'
+
+  merge-coverage-reports:
+    description: |
+      Merges individual code coverage files using "nyc" tool.
+    steps:
+      - run: ls -la .
+      - run: ls -la coverage-part || true
+      - run: npx nyc merge coverage-part
+      - run: mkdir .nyc_output || true
+      - run: mv coverage.json .nyc_output/out.json
+      - run: ls -la .nyc_output
+
+jobs:
+  merge-coverage:
+    description: Merges individual code coverage files and sends combined data to Coveralls.io
+    executor: cypress-executor
+    steps:
+      - attach_workspace:
+          at: ~/
+      - merge-coverage-reports
       - run:
-          name: Configure Google Cloud SDK
+          name: generate coverage report
           command: |
-            echo "$GCLOUD_SERVICE_KEY" | base64 --decode -i > ${HOME}/gcloud-service-key.json
-            gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-            gcloud config set project sytw-428919
-            gcloud config set compute/zone europe-west4-a
-            gcloud container clusters get-credentials practica-final --project=sytw-428919 --zone=europe-west4-a
+            npx nyc report \
+              --reporter lcov --reporter text-summary \
+              --report-dir coverage
+      - store_artifacts:
+          path: coverage
       - run:
-          name: Update Deployment in GKE
-          command: |
-            kubectl set image deployment/practica-final practica-final=alu0101103181/practica-final:${CIRCLE_SHA1}
+          command: npm run coveralls || true
 
 workflows:
-  version: 2
-  test:
+  build:
     jobs:
-      - test
+      - setup:
+          executor: cypress-executor
+          steps:
+            - run: npm config set unsafe-perm true
+
+      - cypress-run:
+          executor: cypress-executor
+          parallelism: 2
+          steps:
+            - run:
+                name: Start server and run Cypress tests
+                command: |
+                  npm run start:coverage &
+                  wait-on http://localhost:4100
+            - save-partial-coverage-report:
+                label: e2e
+
+      - merge-coverage:
+          requires:
+            - cypress-run
+# version: 2.1
+# jobs:
+#   test:
+#     description: Ejecucion de test cypress
+#     docker:
+#       - image: cypress/base:14
+#     steps:
+#       - checkout
+#       - run:
+#           name: Instalando proyecto
+#           command: npm install
+#       - run:
+#           name: Creando directorios
+#           command: mkdir .nyc_output
+#       - run:
+#           name: Empezando coverage
+#           command: npm run start:coverage &
+#       - run:
+#           name: Usando NYC
+#           command: npx nyc report --reporter=text
+#       - run:
+#           name: Creado Coverage-Part
+#           command: mkdir coverage-part
+#       - run:
+#           name: Creando ficher placeholder
+#           command: touch coverage-part/.placeholder
+#       - run:
+#           name: Copiando
+#           command: cp coverage/coverage-final.json coverage-part/coverage-default-$CIRCLE_WORKFLOW_JOB_ID-index-$CIRCLE_NODE_INDEX.json || true
+#       - run:
+#           name: Merge
+#           command: npx nyc merge coverage-part
+#       - run:
+#           name: Moviendo al directorio
+#           command: mv coverage.json .nyc_output/out.json
+#       - run:
+#           name: Ejecutando Tests
+#           command: npm run coveralls
+#   dockerize:
+#     description: Compila y sube imagen docker
+#     docker:
+#       - image: docker:19.03.12
+#     steps:
+#       - checkout
+#       - setup_remote_docker:
+#           version: 19.03.12
+#       - run:
+#           name: Construye Imagen
+#           command: |
+#             docker build -t alu0101103181/practica-final:${CIRCLE_SHA1} .
+#             docker tag alu0101103181/practica-final:${CIRCLE_SHA1} alu0101103181/practica-final:latest
+#       - run:
+#           name: Sube Imagen
+#           command: |
+#             echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+#             docker push alu0101103181/practica-final:${CIRCLE_SHA1}
+#             docker push alu0101103181/practica-final:latest
+
+#   deploy:
+#     description: Despliega en GKE
+#     docker:
+#       - image: google/cloud-sdk:latest
+#     steps:
+#       - checkout
+#       - run:
+#           name: Configure Google Cloud SDK
+#           command: |
+#             echo "$GCLOUD_SERVICE_KEY" | base64 --decode -i > ${HOME}/gcloud-service-key.json
+#             gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+#             gcloud config set project sytw-428919
+#             gcloud config set compute/zone europe-west4-a
+#             gcloud container clusters get-credentials practica-final --project=sytw-428919 --zone=europe-west4-a
+#       - run:
+#           name: Update Deployment in GKE
+#           command: |
+#             kubectl set image deployment/practica-final practica-final=alu0101103181/practica-final:${CIRCLE_SHA1}
+
+# workflows:
+#   version: 2
+#   test:
+#     jobs:
+#       - test
